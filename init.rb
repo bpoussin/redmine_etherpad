@@ -60,7 +60,28 @@ Redmine::Plugin.register :redmine_etherpad do
         end
       end
       
-      return CGI::unescapeHTML("<iframe src='#{conf['host']}/p/#{URI.encode(padname)}?#{hash_to_querystring(controls)}' width='#{width}' height='#{height}'></iframe>")
+      if padname.to_s.strip.length == 0 
+        if obj.is_a?(Issue)
+          padname = "issue#{obj.id}"
+        elsif obj.is_a?(WikiContent) || obj.is_a?(WikiContent::Version)
+          padname = "wiki#{obj.id}"
+        end
+      end
+      
+      addContext = conf.fetch('addContext', true)
+      addProject = conf.fetch('addProject', true)
+
+      if addProject
+        padname = "#{@project}-#{padname}"
+      end
+
+      if addContext
+        context = conf.fetch('context', 'redmine')
+        padname = "#{context}-#{padname}"
+      end
+
+      
+      return tag('iframe', {:src=>"#{conf['host']}/p/#{URI.encode(padname)}?#{hash_to_querystring(controls)}", :width=>"#{width}", :height=>"#{height}"}, false, false)
     end
   end
 end
