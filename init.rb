@@ -72,7 +72,7 @@ Redmine::Plugin.register :redmine_etherpad do
       addProject = conf.fetch('addProject', true)
 
       if addProject
-        padname = "#{@project.id}-#{padname}"
+        padname = "#{@project.identifier}-#{padname}"
       end
 
       if addContext
