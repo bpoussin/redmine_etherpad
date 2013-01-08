@@ -4,6 +4,8 @@
 
 require 'redmine'
 require 'uri'
+require 'net/http'
+require 'json'
 
 Redmine::Plugin.register :redmine_etherpad do
   name 'Redmine Etherpad plugin'
@@ -43,23 +45,7 @@ Redmine::Plugin.register :redmine_etherpad do
         end
       end
 
-      # Set current user name.
-      if User.current
-        controls['userName'] = User.current.name
-      elsif conf.fetch('loginRequired', true)
-        return "TODO: embed read-only."
-      end
-
-      width = controls.delete('width')
-      height = controls.delete('height')
-
-      def hash_to_querystring(hash)
-        hash.keys.inject('') do |query_string, key|
-          query_string << '&' unless key == hash.keys.first
-          query_string << "#{URI.encode(key.to_s)}=#{URI.encode(hash[key].to_s)}"
-        end
-      end
-      
+      # compute pad name
       if padname.to_s.strip.length == 0 
         if obj.is_a?(Issue)
           padname = "issue#{obj.id}"
@@ -80,6 +66,33 @@ Redmine::Plugin.register :redmine_etherpad do
         padname = "#{context}-#{padname}"
       end
 
+
+      # Set current user name.
+      #if User.current
+      canEditProject = User.current.allowed_to?({:controller => 'projects', :action => "edit"}, @project)
+      
+      if User.current and canEditProject
+        controls['userName'] = User.current.name
+      elsif conf.fetch('loginRequired', true) and not canEditProject
+        apikey = conf.fetch('apikey', '')
+        if apikey.length == 0
+          return "TODO: embed read-only."          
+        else
+          resultHttp = Net::HTTP.get(URI.parse("#{conf['host']}//api/1/getHTML?padID=#{padname}&apikey=#{apikey}"))
+          html = JSON.parse(resultHttp)['data']['html']
+          return content_tag('div', html, {'class'=>'etherpad'}, false)
+        end
+      end
+
+      width = controls.delete('width')
+      height = controls.delete('height')
+
+      def hash_to_querystring(hash)
+        hash.keys.inject('') do |query_string, key|
+          query_string << '&' unless key == hash.keys.first
+          query_string << "#{URI.encode(key.to_s)}=#{URI.encode(hash[key].to_s)}"
+        end
+      end
       
       return tag('iframe', {:src=>"#{conf['host']}/p/#{URI.encode(padname)}?#{hash_to_querystring(controls)}", :width=>"#{width}", :height=>"#{height}"}, false, false)
     end
